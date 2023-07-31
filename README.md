@@ -4,4 +4,6 @@ Currently Open Sourcing Shapeshift, taking time to identify versions of the soft
 
 This software is not ready for production use. Do not try to deploy this software.
 
-Assessment and Risk Analysis is found in `model/assessment.ipynb`
+Assessment and Risk Analysis is found in `assessment.ipynb`.
+Selective Parts of the interface found in the `interface` folder.
+Proposed Mathematical Model foundin `foundation.pdf`.
