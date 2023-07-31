@@ -1,0 +1,31 @@
+{
+  "name": "earfquake",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@chakra-ui/react": "^2.5.5",
+    "@deck.gl/react": "^8.9.9",
+    "@emotion/react": "^11.10.6",
+    "@emotion/styled": "^11.10.6",
+    "@turf/nearest-point": "^6.5.0",
+    "d3": "^7.8.4",
+    "deck.gl": "^8.9.9",
+    "eslint": "8.39.0",
+    "eslint-config-next": "13.3.1",
+    "framer-motion": "^10.12.4",
+    "mapbox-gl": "^2.14.1",
+    "next": "13.3.1",
+    "papaparse": "^5.4.1",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-map-gl": "^7.0.23",
+    "react-mapbox-gl": "^5.1.1",
+    "turf": "^3.0.14"
+  }
+}
