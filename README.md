@@ -6,4 +6,3 @@ This software is not ready for production use. Do not try to deploy this softwar
 
 Assessment and Risk Analysis is found in `assessment.ipynb`.
 Selective Parts of the interface found in the `interface` folder.
-Proposed Mathematical Model foundin `foundation.pdf`.
