@@ -4,13 +4,17 @@ import numpy as np
 from scipy.spatial import KDTree
 import pandas as pd
 import math
+import os
 
-economic = pd.read_csv("../datasets/economicdata.csv")
-tectonic_plates = pd.read_csv("../datasets/all.csv")
-data = pd.read_csv("../datasets/updated_info.csv")
+economic_path = os.path.join(os.path.dirname(__file__), "../datasets/economicdata.csv")
+economic = pd.read_csv(economic_path)
+all_path = os.path.join(os.path.dirname(__file__), "../datasets/all.csv")
+tectonic_plates = pd.read_csv(all_path)
+updated_path = os.path.join(os.path.dirname(__file__), "../datasets/updated_info.csv")
+data = pd.read_csv(updated_path)
 data = data.drop([9258, 9479, 18023])
-demographics = pd.read_csv(
-    "../datasets/socioeconomic.csv", encoding="ISO-8859-1")
+socioeconomic_path = os.path.join(os.path.dirname(__file__), "../datasets/socioeconomic.csv")
+demographics = pd.read_csv(socioeconomic_path, encoding="ISO-8859-1")
 
 app = Flask(__name__)
 
@@ -125,7 +129,7 @@ def runModel(latitude_input, longitude_input):
 def main():
     return 'Hello'
 
-@app.route('/risk', methods=["POST", "GET"])
+@app.route('/api/risk', methods=["POST", "GET"])
 def risk():
     lat = int(request.form['lat'])
     lon = int(request.form['lon'])
