@@ -121,7 +121,7 @@ def runModel(latitude_input, longitude_input):
     return risk_score, economic_score, regulatory_score, country_identified, gdppc_value
 
 
-@app.route('/risk', methods=["POST", "GET"])
+@app.route('/', methods=["POST", "GET"])
 def risk():
     lat = int(request.form['lat'])
     lon = int(request.form['lon'])
