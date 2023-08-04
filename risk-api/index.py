@@ -7,7 +7,7 @@ import math
 
 economic = pd.read_csv("../datasets/economicdata.csv")
 tectonic_plates = pd.read_csv("../datasets/all.csv")
-data = pd.read_csv("../datasets/new.csv")
+data = pd.read_csv("../datasets/updated_info.csv")
 data = data.drop([9258, 9479, 18023])
 demographics = pd.read_csv(
     "../datasets/socioeconomic.csv", encoding="ISO-8859-1")
@@ -61,7 +61,7 @@ def locate_nearest_earthquakes(coord):
     data["Date"] = pd.to_datetime(data["Date"]) 
     data.sort_values(by="Date", ascending=False, inplace=True)
 
-    most_recent_earthquakes = data.head(3)
+    most_recent_earthquakes = data.head(2)
     nearest_earthquakes = data.nsmallest(5, "Distance_to_Input")
     selected_earthquakes = pd.concat([most_recent_earthquakes, nearest_earthquakes])
     current_time = pd.Timestamp.now()
@@ -70,7 +70,7 @@ def locate_nearest_earthquakes(coord):
     selected_earthquakes["Time_Decay_Factor"] = np.exp(-selected_earthquakes["Time_Since_Last_Earthquake"])
     selected_earthquakes["Weight"] = selected_earthquakes["Weight"] * selected_earthquakes["Time_Decay_Factor"]
     selected_earthquakes["Weighted_Danger_Level"] = selected_earthquakes["Weight"] * selected_earthquakes["Composite Score"]
-    weighted_composite_score = (selected_earthquakes["Weighted_Danger_Level"].sum() / selected_earthquakes["Weight"].sum()) - 2
+    weighted_composite_score = (selected_earthquakes["Weighted_Danger_Level"].sum() / selected_earthquakes["Weight"].sum()) * 0.7
 
     print(selected_earthquakes[["Latitude", "Longitude", "Distance_to_Input", "Composite Score", "Weighted_Danger_Level"]])
 
@@ -118,15 +118,15 @@ def runModel(latitude_input, longitude_input):
     risk_score = round(weighted_composite_score, 3)
     print(f"Risk Score: {risk_score}")
 
-    return risk_score, economic_score, regulatory_score, country_identified
+    return risk_score, economic_score, regulatory_score, country_identified, gdppc_value
 
 
 @app.route('/risk', methods=["POST", "GET"])
 def risk():
     lat = int(request.form['lat'])
     lon = int(request.form['lon'])
-    risk_score, economic_score, regulatory_score, country_identified = runModel(lat, lon)
-    return json.dumps({'Risk Score': risk_score, 'Economic Score': economic_score, 'Regulatory Score': regulatory_score, 'Country': country_identified })
+    risk_score, economic_score, regulatory_score, country_identified, gdppc_value = runModel(lat, lon)
+    return json.dumps({'Risk Score': risk_score, 'Economic Score': economic_score, 'Regulatory Score': regulatory_score, 'GDPPC': round(np.log(gdppc_value), 3), 'Country': country_identified })
 
 
 if __name__ == '__main__':
