@@ -125,9 +125,14 @@ def runModel(latitude_input, longitude_input):
     return risk_score, economic_score, regulatory_score, country_identified, gdppc_value
 
 
-@app.route('/')
+@app.route('/api/python')
 def main():
     return 'Hello'
+
+
+@app.route('/')
+def main():
+    return 'Hi'
 
 @app.route('/api/risk', methods=["POST", "GET"])
 def risk():
