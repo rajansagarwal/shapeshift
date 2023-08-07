@@ -146,4 +146,4 @@ def test():
     return json.dumps({ 'lat': lat, 'lon': lon })
 
 if __name__ == '__main__':
-    app.run(debug=True, host='localhost', port=2000)
+    app.run(debug=True, host='localhost', port=8000)
