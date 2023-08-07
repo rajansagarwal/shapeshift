@@ -138,7 +138,7 @@ def main():
 
 @app.route('/api/python')
 @exception_handler
-def main():
+def python():
     return 'Hello'
 
 @app.route('/api/risk', methods=["POST", "GET"])
