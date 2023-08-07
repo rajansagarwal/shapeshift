@@ -124,19 +124,30 @@ def runModel(latitude_input, longitude_input):
 
     return risk_score, economic_score, regulatory_score, country_identified, gdppc_value
 
+def exception_handler(func):
+    def wrapper(*args, **kwargs):
+        print('exception handled')
 
-@app.route('/api/python')
-def main():
-    return 'Hello'
+    return wrapper
 
 
 @app.route('/')
+@exception_handler
 def main():
     return 'Hi'
 
+@app.route('/api/python')
+@exception_handler
+def main():
+    return 'Hello'
+
 @app.route('/api/risk', methods=["POST", "GET"])
+@exception_handler
 def risk():
     lat = int(request.form['lat'])
     lon = int(request.form['lon'])
     risk_score, economic_score, regulatory_score, country_identified, gdppc_value = runModel(lat, lon)
     return json.dumps({'Risk Score': risk_score, 'Economic Score': economic_score, 'Regulatory Score': regulatory_score, 'GDPPC': round(np.log(gdppc_value), 3), 'Country': country_identified })
+
+if __name__ == '__main__':
+    app.run(debug=True, host='localhost', port=2000)
