@@ -1,22 +1,25 @@
-from flask import Flask, request, json
+from flask import Flask, request, jsonify
 import reverse_geocode
 import numpy as np
 from scipy.spatial import KDTree
 import pandas as pd
 import math
 import os
+from flask_cors import CORS
 
-economic_path = os.path.join(os.path.dirname(__file__), "../datasets/economicdata.csv")
+economic_path = os.path.join(os.path.dirname(__file__), "economicdata.csv")
 economic = pd.read_csv(economic_path)
-all_path = os.path.join(os.path.dirname(__file__), "../datasets/all.csv")
+all_path = os.path.join(os.path.dirname(__file__), "all.csv")
 tectonic_plates = pd.read_csv(all_path)
-updated_path = os.path.join(os.path.dirname(__file__), "../datasets/updated_info.csv")
+updated_path = os.path.join(os.path.dirname(__file__), "updated_info.csv")
 data = pd.read_csv(updated_path)
 data = data.drop([9258, 9479, 18023])
-socioeconomic_path = os.path.join(os.path.dirname(__file__), "../datasets/socioeconomic.csv")
+socioeconomic_path = os.path.join(
+    os.path.dirname(__file__), "socioeconomic.csv")
 demographics = pd.read_csv(socioeconomic_path, encoding="ISO-8859-1")
 
 app = Flask(__name__)
+CORS(app, origins='http://localhost:3000')
 
 
 def haversine_distance(coord1, coord2):
@@ -53,32 +56,44 @@ def calculate_distance_to_fault(row):
         earthquake_coordinate, (nearest_fault_line["lat"], nearest_fault_line["lon"]))
     return distance_to_fault
 
+
 def locate_nearest_earthquakes(coord):
     data["Distance_to_Fault"] = data.apply(calculate_distance_to_fault, axis=1)
-    data["Distance_to_Input"] = data.apply(lambda row: haversine_distance(coord, (row["Latitude"], row["Longitude"])), axis=1)
+    data["Distance_to_Input"] = data.apply(lambda row: haversine_distance(
+        coord, (row["Latitude"], row["Longitude"])), axis=1)
     max_distance = data["Distance_to_Input"].max()
     max_composite_score = data["Composite Score"].max()
 
     data["Normalized_Distance"] = data["Distance_to_Input"] / max_distance
-    data["Normalized_Composite_Score"] = data["Composite Score"] / max_composite_score
-    data["Weight"] = 0.7 * (1 - data["Normalized_Distance"]) + 0.3 * data["Normalized_Composite_Score"]
-    data["Date"] = pd.to_datetime(data["Date"]) 
+    data["Normalized_Composite_Score"] = data["Composite Score"] / \
+        max_composite_score
+    data["Weight"] = 0.7 * (1 - data["Normalized_Distance"]) + \
+        0.3 * data["Normalized_Composite_Score"]
+    data["Date"] = pd.to_datetime(data["Date"])
     data.sort_values(by="Date", ascending=False, inplace=True)
 
     most_recent_earthquakes = data.head(2)
     nearest_earthquakes = data.nsmallest(5, "Distance_to_Input")
-    selected_earthquakes = pd.concat([most_recent_earthquakes, nearest_earthquakes])
+    selected_earthquakes = pd.concat(
+        [most_recent_earthquakes, nearest_earthquakes])
     current_time = pd.Timestamp.now()
-    
-    selected_earthquakes["Time_Since_Last_Earthquake"] = (current_time - selected_earthquakes["Date"]).dt.days / 365
-    selected_earthquakes["Time_Decay_Factor"] = np.exp(-selected_earthquakes["Time_Since_Last_Earthquake"])
-    selected_earthquakes["Weight"] = selected_earthquakes["Weight"] * selected_earthquakes["Time_Decay_Factor"]
-    selected_earthquakes["Weighted_Danger_Level"] = selected_earthquakes["Weight"] * selected_earthquakes["Composite Score"]
-    weighted_composite_score = (selected_earthquakes["Weighted_Danger_Level"].sum() / selected_earthquakes["Weight"].sum()) * 0.7
 
-    print(selected_earthquakes[["Latitude", "Longitude", "Distance_to_Input", "Composite Score", "Weighted_Danger_Level"]])
+    selected_earthquakes["Time_Since_Last_Earthquake"] = (
+        current_time - selected_earthquakes["Date"]).dt.days / 365
+    selected_earthquakes["Time_Decay_Factor"] = np.exp(
+        -selected_earthquakes["Time_Since_Last_Earthquake"])
+    selected_earthquakes["Weight"] = selected_earthquakes["Weight"] * \
+        selected_earthquakes["Time_Decay_Factor"]
+    selected_earthquakes["Weighted_Danger_Level"] = selected_earthquakes["Weight"] * \
+        selected_earthquakes["Composite Score"]
+    weighted_composite_score = (selected_earthquakes["Weighted_Danger_Level"].sum(
+    ) / selected_earthquakes["Weight"].sum()) * 0.7
+
+    print(selected_earthquakes[["Latitude", "Longitude",
+          "Distance_to_Input", "Composite Score", "Weighted_Danger_Level"]])
 
     return weighted_composite_score
+
 
 def runModel(latitude_input, longitude_input):
     input_coordinate = (latitude_input, longitude_input)
@@ -124,26 +139,134 @@ def runModel(latitude_input, longitude_input):
 
     return risk_score, economic_score, regulatory_score, country_identified, gdppc_value
 
-@app.route('/')
-def main():
-    return 'Hi'
+
+def find_closest_faults_quakes(lat, lon, plates, num_closest_lines):
+    given_coordinate = (lat, lon)
+    closest_fault_lines = []
+    closest_earthquakes = []
+
+    for plate in plates:
+        plate_vals = tectonic_plates[tectonic_plates["plate"] == plate]
+        distance_to_plate = haversine_distance(
+            given_coordinate, (plate_vals['lat'].iloc[0], plate_vals['lon'].iloc[0]))
+        closest_fault_lines.append((plate, distance_to_plate))
+
+    closest_fault_lines.sort(key=lambda x: x[1])
+    closest_fault_lines = closest_fault_lines[:num_closest_lines]
+
+    for index, row in data.iterrows():
+        distance = haversine_distance(
+            given_coordinate, (row['Latitude'], row['Longitude']))
+        closest_earthquakes.append(
+            (row['Latitude'], row['Longitude'], distance))
+
+    closest_earthquakes.sort(key=lambda x: x[2])
+    closest_earthquakes = closest_earthquakes[:num_closest_lines]
+
+    return closest_fault_lines, closest_earthquakes
+
+
+def structure(lat_in, lon_in):
+    plates = list(tectonic_plates["plate"].unique())
+
+    closest_fault_lines = []
+    closest_earthquakes = []
+    distance_to_fault_lines = float('inf')
+    num_closest_lines = 4
+
+    for plate in plates:
+        plate_vals = tectonic_plates[tectonic_plates["plate"] == plate]
+        lats = plate_vals["lat"].values
+        lons = plate_vals["lon"].values
+        points = list(zip(lats, lons))
+        indexes = [None] + [i + 1 for i, x in enumerate(points) if i < len(
+            points) - 1 and abs(x[1] - points[i + 1][1]) > 300] + [None]
+
+        for i in range(len(indexes) - 1):
+            for quake_lat, quake_lon in points[indexes[i]:indexes[i+1]]:
+                distance = haversine_distance(
+                    (lat_in, lon_in), (quake_lat, quake_lon))
+                if distance < distance_to_fault_lines:
+                    distance_to_fault_lines = distance
+                    closest_earthquakes = [(quake_lat, quake_lon, distance)]
+                elif distance == distance_to_fault_lines:
+                    closest_earthquakes.append(
+                        (quake_lat, quake_lon, distance))
+
+            distance_to_plate = haversine_distance(
+                (lat_in, lon_in), (plate_vals['lat'].iloc[0], plate_vals['lon'].iloc[0]))
+            closest_fault_lines.append((plate, distance_to_plate))
+
+    closest_fault_lines.sort(key=lambda x: x[1])
+    closest_fault_lines = closest_fault_lines[:num_closest_lines]
+    closest_earthquakes.sort(key=lambda x: x[2])
+    closest_earthquakes = closest_earthquakes[:num_closest_lines]
+
+    closest_fault_lines_list = []
+    closest_earthquakes_list = []
+
+    for index, row in data.head(20).iterrows():
+        closest_fault_lines, closest_earthquakes = find_closest_faults_quakes(
+            row['Latitude'], row['Longitude'], plates, num_closest_lines)
+        closest_fault_lines_list.append(closest_fault_lines)
+        closest_earthquakes_list.append(closest_earthquakes)
+
+    results_df = pd.DataFrame({
+        'Latitude': data.head(20)['Latitude'],
+        'Longitude': data.head(20)['Longitude'],
+        'Closest_Fault_Lines': closest_fault_lines_list,
+        'Closest_Earthquakes': closest_earthquakes_list
+    })
+
+    return results_df[0:20]
+
 
 @app.route('/api/python')
-def python():
+def main():
     return 'Hello'
+
+
+@app.route('/api/structure', methods=['POST', 'GET'])
+def struct():
+    if request.method == "POST":
+        try:
+            lat = float(request.form['lat'])
+            lon = float(request.form['lon'])
+
+            df = structure(lat, lon)
+
+            return df.to_json(orient='records')
+        except Exception as e:
+            return jsonify({'error': str(e)}), 400
+    else:
+        return jsonify({'message': 'Use POST request to calculate structure data'})
+
 
 @app.route('/api/risk', methods=["POST", "GET"])
 def risk():
-    lat = int(request.form['lat'])
-    lon = int(request.form['lon'])
-    risk_score, economic_score, regulatory_score, country_identified, gdppc_value = runModel(lat, lon)
-    return json.dumps({'Risk Score': risk_score, 'Economic Score': economic_score, 'Regulatory Score': regulatory_score, 'GDPPC': round(np.log(gdppc_value), 3), 'Country': country_identified })
+    if request.method == "POST":
+        try:
+            lat = float(request.form['lat'])
+            lon = float(request.form['lon'])
 
-@app.route('/api/test', methods=["POST", "GET"])
-def test():
-    lat = int(request.form['lat'])
-    lon = int(request.form['lon'])
-    return json.dumps({ 'lat': lat, 'lon': lon })
+            risk_score, economic_score, regulatory_score, country_identified, gdppc_value = runModel(
+                lat, lon)
+
+            response = {
+                'riskScore': risk_score,
+                'economicScore': economic_score,
+                'regulatoryScore': regulatory_score,
+                'gdppc': round(np.log(gdppc_value), 3),
+                'country': country_identified
+            }
+
+            return jsonify(response)
+        except Exception as e:
+            # Return an error response with status code 400
+            return jsonify({'error': str(e)}), 400
+    else:
+        return jsonify({'message': 'Use POST request to calculate risk'})
+
 
 if __name__ == '__main__':
-    app.run(debug=True, host='localhost', port=8000)
+    app.run(debug=True, port=2000)
