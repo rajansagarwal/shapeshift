@@ -24,8 +24,8 @@ tokenizer = AutoTokenizer.from_pretrained("facebook/bart-large-cnn")
 summarizer = pipeline(
     "summarization", model="philschmid/bart-large-cnn-samsum")
 
-os.environ["COHERE_API_KEY"] = "YSrBNoT0aPt9R7qmYp29qjblwTUZk3l6pWbtkb4Q"
-co = cohere.Client('YSrBNoT0aPt9R7qmYp29qjblwTUZk3l6pWbtkb4Q')
+os.environ["COHERE_API_KEY"] = "COHERE KEY"
+co = cohere.Client('COHERE KEY')
 
 economic_path = os.path.join(os.path.dirname(__file__), "economicdata.csv")
 economic = pd.read_csv(economic_path)
