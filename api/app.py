@@ -5,7 +5,27 @@ from scipy.spatial import KDTree
 import pandas as pd
 import math
 import os
+from transformers import GPT2TokenizerFast
+from langchain.document_loaders import PyPDFLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.embeddings import CohereEmbeddings
+from langchain.vectorstores import FAISS
+from langchain.chains.question_answering import load_qa_chain
+from langchain.llms import Cohere
+from langchain.chains import ConversationalRetrievalChain
 from flask_cors import CORS
+import slate3k as slate
+from transformers import AutoTokenizer, BartForConditionalGeneration, pipeline
+import cohere
+
+model = BartForConditionalGeneration.from_pretrained("facebook/bart-large-cnn")
+tokenizer = AutoTokenizer.from_pretrained("facebook/bart-large-cnn")
+
+summarizer = pipeline(
+    "summarization", model="philschmid/bart-large-cnn-samsum")
+
+os.environ["COHERE_API_KEY"] = "YSrBNoT0aPt9R7qmYp29qjblwTUZk3l6pWbtkb4Q"
+co = cohere.Client('YSrBNoT0aPt9R7qmYp29qjblwTUZk3l6pWbtkb4Q')
 
 economic_path = os.path.join(os.path.dirname(__file__), "economicdata.csv")
 economic = pd.read_csv(economic_path)
@@ -20,6 +40,24 @@ demographics = pd.read_csv(socioeconomic_path, encoding="ISO-8859-1")
 
 app = Flask(__name__)
 CORS(app, origins='http://localhost:3000')
+
+with open('ts500.txt', 'r') as f:
+    text = f.read()
+
+tokenizer = GPT2TokenizerFast.from_pretrained("gpt2")
+
+
+def count_tokens(text: str) -> int:
+    return len(tokenizer.encode(text))
+
+
+text_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=500, chunk_overlap=150, length_function=count_tokens)
+
+chunks = text_splitter.create_documents([text])
+
+embeddings = CohereEmbeddings()
+db = FAISS.from_documents(chunks, embeddings)
 
 
 def haversine_distance(coord1, coord2):
@@ -221,6 +259,11 @@ def structure(lat_in, lon_in):
     return results_df[0:20]
 
 
+def code_sim(query):
+    docs = db.similarity_search(query)
+    return (docs)
+
+
 @app.route('/api/python')
 def main():
     return 'Hello'
@@ -266,6 +309,38 @@ def risk():
             return jsonify({'error': str(e)}), 400
     else:
         return jsonify({'message': 'Use POST request to calculate risk'})
+
+
+@app.route('/api/codes', methods=["POST", "GET"])
+def codes():
+    if request.method == "POST":
+        try:
+            query = request.form['query']
+            results = code_sim(query)
+            page_contents = [result.page_content for result in results]
+            ARTICLE = ' '.join(page_contents)
+            # inputs = tokenizer([ARTICLE], max_length=1024, return_tensors="pt", truncation=True)
+
+            # summary_ids = model.generate(inputs["input_ids"], num_beams=4, min_length=50, max_length=150, no_repeat_ngram_size=2)
+            # x1 = tokenizer.batch_decode(summary_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
+
+            # Generate summary using the summarizer pipeline
+            x2 = summarizer(ARTICLE, min_length=100, max_length=300, num_beams=1, truncation=True)[0]['summary_text']
+
+            # response = co.summarize( 
+            #    text=ARTICLE,
+            #    length='short',
+            #    format='paragraph',
+            #    model='summarize-xlarge',
+            #    additional_command='',
+            #    temperature=0.6,
+            #)
+            #  
+            return jsonify({'result': x2 })
+        except Exception as e:
+            return jsonify({'error': str(e)}), 400
+    else:
+        return jsonify({'message': 'Use POST request to send query'})
 
 
 if __name__ == '__main__':
