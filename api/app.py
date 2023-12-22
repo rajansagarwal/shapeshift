@@ -6,13 +6,13 @@ import pandas as pd
 import math
 import os
 from transformers import GPT2TokenizerFast
-from langchain.document_loaders import PyPDFLoader
+# from langchain.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.embeddings import CohereEmbeddings
 from langchain.vectorstores import FAISS
-from langchain.chains.question_answering import load_qa_chain
+# from langchain.chains.question_answering import load_qa_chain
 from langchain.llms import Cohere
-from langchain.chains import ConversationalRetrievalChain
+# from langchain.chains import ConversationalRetrievalChain
 from flask_cors import CORS
 import slate3k as slate
 from transformers import AutoTokenizer, BartForConditionalGeneration, pipeline
@@ -59,7 +59,6 @@ chunks = text_splitter.create_documents([text])
 embeddings = CohereEmbeddings()
 db = FAISS.from_documents(chunks, embeddings)
 
-
 def haversine_distance(coord1, coord2):
     lat1, lon1 = coord1
     lat2, lon2 = coord2
@@ -86,14 +85,12 @@ def find_nearest_fault_line(coord):
     nearest_fault_line = tectonic_plates.iloc[index_of_nearest_fault]
     return nearest_fault_line
 
-
 def calculate_distance_to_fault(row):
     earthquake_coordinate = (row["Latitude"], row["Longitude"])
     nearest_fault_line = find_nearest_fault_line(earthquake_coordinate)
     distance_to_fault = haversine_distance(
         earthquake_coordinate, (nearest_fault_line["lat"], nearest_fault_line["lon"]))
     return distance_to_fault
-
 
 def locate_nearest_earthquakes(coord):
     data["Distance_to_Fault"] = data.apply(calculate_distance_to_fault, axis=1)
@@ -203,7 +200,6 @@ def find_closest_faults_quakes(lat, lon, plates, num_closest_lines):
 
     return closest_fault_lines, closest_earthquakes
 
-
 def structure(lat_in, lon_in):
     plates = list(tectonic_plates["plate"].unique())
 
@@ -258,16 +254,13 @@ def structure(lat_in, lon_in):
 
     return results_df[0:20]
 
-
 def code_sim(query):
     docs = db.similarity_search(query)
     return (docs)
 
-
 @app.route('/api/python')
 def main():
     return 'Hello'
-
 
 @app.route('/api/structure', methods=['POST', 'GET'])
 def struct():
@@ -341,7 +334,6 @@ def codes():
             return jsonify({'error': str(e)}), 400
     else:
         return jsonify({'message': 'Use POST request to send query'})
-
 
 if __name__ == '__main__':
     app.run(debug=True, port=2000)
