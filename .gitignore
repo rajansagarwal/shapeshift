@@ -1,3 +1,4 @@
 .vercel
 /api/waitlist.py
 /interface/
+venv/
