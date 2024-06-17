@@ -2,3 +2,4 @@
 /api/waitlist.py
 /interface/
 venv/
+datasets/
